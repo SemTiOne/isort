@@ -2489,3 +2489,20 @@ def test_add_import_keeps_a_prefixed_module_docstring_first_issue_1893():
                 docstring = f"{cased}{quote}module docstring\n{quote}\n"
                 source = docstring + "import a\n"
                 assert isort.code(source, add_imports=["import a"]) == source, cased + quote
+
+
+def test_comments_should_cause_wrapping_on_long_lines_black_mode_issue_2124():
+    """Ensure isort doesn't merge a long comment onto the opening line of a
+    multiline from import when using the black profile.
+    See: https://github.com/PyCQA/isort/issues/2124
+    """
+    assert isort.code(
+        """from os.path import (
+    join,
+    # this is a really really really really really really really really
+    # really really really really really really long comment
+    getsize,
+)
+""",
+        profile="black",
+    ).startswith("from os.path import (\n    # this is a really really")
