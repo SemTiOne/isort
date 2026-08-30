@@ -173,6 +173,33 @@ def test_vertical_hanging_indent_short_comment_stays_on_opening_line():
     )
 
 
+def test_vertical_hanging_indent_non_directive_type_comment_moves_off():
+    """A long comment containing 'type:' but not a 'type: ignore' directive moves off."""
+    assert (
+        wrap_modes.vertical_hanging_indent(
+            statement="from os.path import ",
+            imports=["getsize", "join"],
+            white_space="    ",
+            indent="    ",
+            line_length=88,
+            comments=[
+                " check type: int and more really really really really really really"
+                " really really really really really really long comment"
+            ],
+            line_separator="\n",
+            comment_prefix="  #",
+            include_trailing_comma=True,
+            remove_comments=False,
+        )
+        == "from os.path import (\n"
+        "    #  check type: int and more really really really really really really really really"
+        " really really really really long comment\n"
+        "    getsize,\n"
+        "    join,\n"
+        ")"
+    )
+
+
 # This test code was written by the `hypothesis.extra.ghostwriter` module
 # and is provided under the Creative Commons Zero public domain dedication.
 

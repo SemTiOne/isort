@@ -174,8 +174,10 @@ def vertical_hanging_indent(**interface: Any) -> str:
     _imports = ("," + interface["line_separator"] + interface["indent"]).join(interface["imports"])
     _comma_maybe = "," if interface["include_trailing_comma"] else ""
     opening = f"{interface['statement']}({_line_with_comments}"
-    _comment_text = " ".join(interface["comments"]) if interface["comments"] else ""
-    _is_functional_comment = "noqa" in _comment_text or "type:" in _comment_text
+    _is_functional_comment = any(
+        comment.strip().lower().startswith(("noqa", "type: ignore"))
+        for comment in (interface["comments"] or [])
+    )
     if (
         _line_with_comments
         and len(opening) > interface["line_length"]
