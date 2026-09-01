@@ -649,11 +649,20 @@ def _with_from_imports_for_module(
                     )
                 )
             else:
+                # `combine_as_imports` with `force_single_line` stores the alias comment
+                # in `straight["module.base"]` (see parse.py). The combined
+                # `from_import` here is the alias string e.g. "the_function as some_function"
+                # so we need to look up via the base name.
+                base = from_import.split(" as ")[0] if " as " in from_import else from_import
+                per_alias_straight = parsed.categorized_comments["straight"].pop(
+                    f"{module}.{base}", []
+                )
                 single_import_line = with_comments(
                     [
                         c
                         for c in (
                             *comments,
+                            *per_alias_straight,
                             parsed.categorized_comments["nested"]
                             .get(module, {})
                             .pop(from_import, None),
@@ -754,12 +763,14 @@ def _with_from_imports_for_module(
         ):
             from_import_section.append(from_imports.pop(0))
 
-        # If we are combining aliased imports we need to pop any associated comments.
         if config.combine_as_imports:
-            comments = [
-                *comments,
-                *(parsed.categorized_comments["from"].pop(f"{module}.__combined_as__", ())),
-            ]
+            combined_as_comments: list[str] = []
+            for imp in from_import_section:
+                base = imp.split(" as ")[0]
+                combined_as_comments.extend(
+                    parsed.categorized_comments["straight"].pop(f"{module}.{base}", [])
+                )
+            comments = [*comments, *combined_as_comments]
 
         grouped_from_import_statement = _build_grouped_from_imports(
             config=config,

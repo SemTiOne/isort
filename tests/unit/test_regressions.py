@@ -571,6 +571,37 @@ from appsettings import AppSettings, ObjectSetting, StringSetting  # type: ignor
     assert "# type: ignore" in isort.code(test_input, combine_as_imports=True)
 
 
+def test_combine_as_with_force_single_line_does_not_lose_comments_issue_2094():
+    """Test to ensure isort doesn't lose trailing comments for aliased imports
+    when both combine_as_imports and force_single_line are enabled.
+    See: https://github.com/PyCQA/isort/issues/2094
+    """
+    import re  # noqa: PLC0415  # local import, consistent with test_sort_reexports_output_is_black_stable_issue_2280
+
+    test_input = """from other_module import other_function  # type: ignore [import]  # pylint: disable=no-name-in-module
+from some_module import the_function as some_function  # type: ignore
+from some_other_module import another_function as yet_another_function  # type: ignore [import]  # pylint: disable=no-name-in-module
+"""
+    output = isort.code(test_input, combine_as_imports=True, force_single_line=True)
+    joined = output.replace("\\\n", " ")
+    assert re.search(
+        r"^from other_module import\s+other_function\s+# type: ignore \[import\]\s+# pylint: disable=no-name-in-module$",
+        joined,
+        re.MULTILINE,
+    )
+    assert re.search(
+        r"^from some_module import the_function as some_function\s+# type: ignore$",
+        joined,
+        re.MULTILINE,
+    )
+    assert re.search(
+        r"^from some_other_module import\s+another_function as\s+yet_another_function\s+# type: ignore \[import\]\s+# pylint: disable=no-name-in-module$",
+        joined,
+        re.MULTILINE,
+    )
+    assert isort.code(output, combine_as_imports=True, force_single_line=True) == output
+
+
 def test_incorrect_grouping_when_comments_issue_1396():
     """Test to ensure isort groups import correct independent of the comments present.
     See: https://github.com/pycqa/isort/issues/1396

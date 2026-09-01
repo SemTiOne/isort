@@ -265,7 +265,6 @@ def file_contents(contents: str, config: Config = DEFAULT_CONFIG) -> ParsedConte
             if "as" in just_imports and (just_imports.index("as") + 1) < len(just_imports):
                 straight_import = False
                 while "as" in just_imports:
-                    nested_module = None
                     as_index = just_imports.index("as")
                     if type_of_import == "from":
                         nested_module = just_imports[as_index - 1]
@@ -297,21 +296,16 @@ def file_contents(contents: str, config: Config = DEFAULT_CONFIG) -> ParsedConte
                             as_map["straight"][module].append(as_name)
 
                     if comments and attach_comments_to is None:
-                        if nested_module and config.combine_as_imports:
-                            attach_comments_to = categorized_comments["from"].setdefault(
-                                f"{top_level_module}.__combined_as__", []
+                        if type_of_import == "from" or (
+                            config.remove_redundant_aliases and as_name == module.split(".")[-1]
+                        ):
+                            attach_comments_to = categorized_comments["straight"].setdefault(
+                                module, []
                             )
                         else:
-                            if type_of_import == "from" or (
-                                config.remove_redundant_aliases and as_name == module.split(".")[-1]
-                            ):
-                                attach_comments_to = categorized_comments["straight"].setdefault(
-                                    module, []
-                                )
-                            else:
-                                attach_comments_to = categorized_comments["straight"].setdefault(
-                                    f"{module} as {as_name}", []
-                                )
+                            attach_comments_to = categorized_comments["straight"].setdefault(
+                                f"{module} as {as_name}", []
+                            )
                     del just_imports[as_index : as_index + 2]
 
             if type_of_import == "from":
