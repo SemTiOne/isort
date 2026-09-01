@@ -183,11 +183,14 @@ def vertical_hanging_indent(**interface: Any) -> str:
         and len(opening) > interface["line_length"]
         and not _is_functional_comment
     ):
-        _comment_on_own_line = isort.comments.add_to_line(
-            interface["comments"],
-            interface["indent"],
-            removed=interface["remove_comments"],
-            comment_prefix=interface["comment_prefix"].lstrip(),
+        _comment_on_own_line = interface["line_separator"].join(
+            isort.comments.add_to_line(
+                [single_comment],
+                interface["indent"],
+                removed=interface["remove_comments"],
+                comment_prefix=interface["comment_prefix"].lstrip(),
+            )
+            for single_comment in (interface["comments"] or [])
         )
         return (
             f"{interface['statement']}({interface['line_separator']}"
