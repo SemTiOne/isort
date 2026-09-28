@@ -35,6 +35,35 @@ if TYPE_CHECKING:
     )
 
 
+def _is_splittable_semicolon_line(line: str, in_quote: str, config: Config) -> bool:
+    """Check for a non-indented import statement followed by non-import code.
+
+    Matches one line such as ``from os import name; print(name)``.
+    """
+    if in_quote or not line or line[0].isspace():
+        return False
+    pieces = [piece.strip() for piece in line.split("#", 1)[0].split(";")]
+    if len(pieces) < 2 or not all(pieces):
+        return False
+    if not import_type(normalize_line(pieces[0])[0], config):
+        return False
+    return any(not import_type(normalize_line(piece)[0], config) for piece in pieces[1:])
+
+
+def _split_continuation_import(import_string: str) -> tuple[str, list[str]]:
+    """Split merged import text at the first continuation-introduced semicolon.
+
+    Return the import head and the post-semicolon code lines.
+    """
+    code, mark, comment = import_string.partition("#")
+    head, _, tail = code.partition(";")
+    tails = [tail.strip()] if tail.strip() else []
+    head = head.rstrip()
+    if mark:
+        head = f"{head} #{comment}"
+    return head, tails
+
+
 def _infer_line_separator(contents: str | None, configured: str) -> str:
     if configured:
         return configured
@@ -146,8 +175,11 @@ def file_contents(contents: str, config: Config = DEFAULT_CONFIG) -> ParsedConte
             import_placements[line] = section
 
         if skipping_line:
-            out_lines.append(line)
-            continue
+            if _is_splittable_semicolon_line(line, in_quote, config):
+                skipping_line = False
+            else:
+                out_lines.append(line)
+                continue
 
         lstripped_line = line.lstrip()
         if (
@@ -250,17 +282,17 @@ def file_contents(contents: str, config: Config = DEFAULT_CONFIG) -> ParsedConte
                         nested_comments[stripped_line] = extra_line.comment
 
             if ";" in import_string.split("#")[0] and ";" not in statement.split("#")[0]:
-                # A continuation line introduced a semicolon, so this is not a
-                # plain import construct: emit it unchanged instead of
-                # parsing post-semicolon code as import names (issue 1918).
-                if len(statements) == 1:
-                    out_lines.extend(in_lines[statement_index - 1 : index])
-                else:
-                    # Later piece of a semicolon-split first line: only its own
-                    # text plus the verbatim continuation lines belong to it.
-                    out_lines.append(raw_lines[0])
-                    out_lines.extend(in_lines[statement_index:index])
-                continue
+                import_string, tails = _split_continuation_import(import_string)
+                raw_lines = raw_lines[:1]
+                out_lines.extend(tails)
+                # Collector stops at the semicolon line; swallow its leftover closers.
+                while index < line_count:
+                    closer, _, closer_comment = in_lines[index].partition("#")
+                    if closer.strip() not in (")", "]", "}"):
+                        break
+                    index += 1
+                    if closer_comment.strip():
+                        out_lines.append(f"#{closer_comment}")
 
             if import_index == -1:
                 import_index = statement_index - 1

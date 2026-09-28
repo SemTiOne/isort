@@ -2710,75 +2710,72 @@ def test_hanging_indent_with_parentheses_keeps_syntax_out_of_trailing_comments()
                     ast.parse(output)  # must never raise
 
 
-def test_semicolon_from_backslash_continuation_emitted_as_is_issue_1918():
-    """A semicolon introduced by a backslash continuation is not an import.
-
-    The continuation must not be parsed for names; the lines go out unchanged.
+def test_semicolon_from_backslash_continuation_normalized_issue_1918():
+    """A backslash continuation introducing a semicolon splits into a sorted
+    import plus code lines.
     See: https://github.com/PyCQA/isort/issues/1918
     """
     source = "from os import \\\n    name; print(name)\n"
     output = isort.code(source)
-    assert output == source
+    assert output == "from os import name\n\nprint(name)\n"
     ast.parse(output)
     assert isort.code(output) == output
 
 
-def test_semicolon_from_paren_continuation_emitted_as_is_issue_1918():
-    """Same guard through the parenthesized continuation path.
-
-    The input itself is invalid Python (``;`` cannot appear in an import
-    list), so the contract is emit-as-is with no added damage, not validity.
+def test_semicolon_from_paren_continuation_normalized_issue_1918():
+    """Same split through the parenthesized continuation path.
     See: https://github.com/PyCQA/isort/issues/1918
     """
     source = "from os import (\n    name; print(name)\n)\n"
     output = isort.code(source)
-    assert output == source
-    assert isort.code(output) == output
-
-
-def test_semicolon_from_straight_continuation_emitted_as_is_issue_1918():
-    """Same guard for straight imports broken across lines.
-    See: https://github.com/PyCQA/isort/issues/1918
-    """
-    source = "import a, \\\n    b; print(b)\n"
-    output = isort.code(source)
-    assert output == source
+    assert output == "from os import name\n\nprint(name)\n"
     ast.parse(output)
     assert isort.code(output) == output
 
 
-def test_semicolon_continuation_slice_covers_comment_lines_issue_1918():
-    """The raw emit spans first line through closing line, comments included.
+def test_semicolon_from_straight_continuation_normalized_issue_1918():
+    """Same split for straight imports broken across lines.
+    See: https://github.com/PyCQA/isort/issues/1918
+    """
+    source = "import a, \\\n    b; print(b)\n"
+    output = isort.code(source)
+    assert output == "import a\nimport b\n\nprint(b)\n"
+    ast.parse(output)
+    assert isort.code(output) == output
+
+
+def test_semicolon_continuation_comment_stays_with_import_issue_1918():
+    """A comment inside the old construct attaches to the import; the closer
+    is dropped.
     See: https://github.com/PyCQA/isort/issues/1918
     """
     source = "from os import (\n    # comment about name\n    name; print(name)\n)\n"
     output = isort.code(source)
-    assert output == source
+    assert output == "from os import name  # comment about name\n\nprint(name)\n"
+    ast.parse(output)
     assert isort.code(output) == output
 
 
-def test_semicolon_continuation_does_not_shift_later_imports_issue_1918():
-    """A skipped construct must not claim the import insertion point.
-
-    Imports after it sort among themselves and stay after it.
+def test_semicolon_continuation_claims_insertion_point_issue_1918():
+    """The split import sorts with later imports; trailing code stays after
+    the import block.
     See: https://github.com/PyCQA/isort/issues/1918
     """
     source = "from os import \\\n    name; print(name)\nimport b\nimport a\n"
-    expected = "from os import \\\n    name; print(name)\nimport a\nimport b\n"
+    expected = "from os import name\n\nimport a\nimport b\n\nprint(name)\n"
     output = isort.code(source)
     assert output == expected
+    ast.parse(output)
     assert isort.code(output) == output
 
 
-def test_semicolon_split_first_line_with_continuation_issue_1918():
-    """A later piece of a semicolon-split line emits only its own text.
-
-    The earlier piece keeps its normal handling; only the piece text plus
-    the verbatim continuation lines go out raw, so nothing is duplicated.
+def test_semicolon_split_first_line_with_continuation_normalized_issue_1918():
+    """Both pieces sort as real imports (stdlib before third-party);
+    trailing code stays after.
     See: https://github.com/PyCQA/isort/issues/1918
     """
     source = "import a; from os import \\\n    b; print(b)\n"
-    expected = "import a\n\nfrom os import \\\n    b; print(b)\n"
+    expected = "from os import b\n\nimport a\n\nprint(b)\n"
     output = isort.code(source)
     assert output == expected
     ast.parse(output)
